@@ -33,7 +33,7 @@ logging.basicConfig(
 
 
 def check_tokens() -> bool:
-    """Проверяет доступность переменных окружения, которые необходимы для работы программы"""
+    """Проверяет доступность переменных окружения."""
     try:
         if TELEGRAM_TOKEN:
             return True
@@ -54,19 +54,24 @@ def check_tokens() -> bool:
 
 
 def send_message(bot, message):
-    """Отправляет сообщение в Telegram чат, определяемый переменной окружения TELEGRAM_CHAT_ID"""
+    """Отправляет сообщение в Telegram чат,
+    определяемый переменной окружения TELEGRAM_CHAT_ID."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Сообщение отправлено')
     except telegram.error.TelegramError:
-        logging.error(f'Сообщение не отправлено')
+        logging.error('Сообщение не отправлено')
 
 
 def get_api_answer(timestamp: int):
     """Делает запрос к единственному эндпоинту API-сервиса."""
     payload = {'from_date': timestamp}
     try:
-        homework_statuses = requests.get(ENDPOINT, headers=HEADERS, params=payload)
+        homework_statuses = requests.get(
+            ENDPOINT,
+            headers=HEADERS,
+            params=payload
+        )
         if homework_statuses.status_code != HTTPStatus.OK:
             raise KeyError('Проблема с запросом, статус_код отличный от 200')
 
@@ -77,7 +82,7 @@ def get_api_answer(timestamp: int):
 
 
 def check_response(response: dict) -> list:
-    """Проверяет ответ API на соответствие документации"""
+    """Проверяет ответ API на соответствие документации."""
     if not isinstance(response, dict):
         logging.error('Response должен быть словарем')
         raise TypeError('Response должен быть словарем')
@@ -89,7 +94,8 @@ def check_response(response: dict) -> list:
 
 
 def parse_status(homework: dict) -> str:
-    """Извлекает из информации о конкретной домашней работе статус работы."""
+    """Извлекает из информации о
+    конкретной домашней работе статус работы."""
 
     if 'homework_name' in homework:
         homework_name = homework['homework_name']
