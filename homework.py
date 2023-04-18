@@ -54,8 +54,9 @@ def check_tokens() -> bool:
 
 
 def send_message(bot, message):
-    """Отправляет сообщение в Telegram чат,
-    определяемый переменной окружения TELEGRAM_CHAT_ID."""
+    """Отправляет сообщение в Telegram чат.
+    Определяемый переменной окружения TELEGRAM_CHAT_ID.
+    """
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Сообщение отправлено')
@@ -94,15 +95,17 @@ def check_response(response: dict) -> list:
 
 
 def parse_status(homework: dict) -> str:
-    """Извлекает из информации о
-    конкретной домашней работе статус работы."""
+    """Извлекает из информации о.
+    конкретной домашней работе статус работы.
+    """
 
     if 'homework_name' in homework:
         homework_name = homework['homework_name']
         status = homework['status']
         if status in HOMEWORK_VERDICTS.keys():
             verdict = HOMEWORK_VERDICTS[status]
-            return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+            return f'(Изменился статус проверки ' \
+                   f'работы "{homework_name}". {verdict})'
         else:
             logging.error('В ответе API нет ключа homework_name')
             raise KeyError('В ответе API нет ключа homework_name')
