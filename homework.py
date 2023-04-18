@@ -98,7 +98,6 @@ def parse_status(homework: dict) -> str:
     """Извлекает из информации о.
     конкретной домашней работе статус работы.
     """
-
     if 'homework_name' in homework:
         homework_name = homework['homework_name']
         status = homework['status']
