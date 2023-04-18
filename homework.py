@@ -2,13 +2,13 @@ import logging
 import os
 import sys
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
-from http import HTTPStatus
 from dotenv import load_dotenv
 
-from exceptions import NoToken, KeysAreNotInResponse
+from exceptions import KeysAreNotInResponse, NoToken
 
 load_dotenv()
 
