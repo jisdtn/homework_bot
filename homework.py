@@ -103,8 +103,8 @@ def parse_status(homework: dict) -> str:
         status = homework['status']
         if status in HOMEWORK_VERDICTS.keys():
             verdict = HOMEWORK_VERDICTS[status]
-            return f'(Изменился статус проверки ' \
-                   f'работы "{homework_name}". {verdict})'
+            return (f'Изменился статус проверки '
+                    f'работы "{homework_name}". {verdict}')
         else:
             logging.error('В ответе API нет ключа homework_name')
             raise KeyError('В ответе API нет ключа homework_name')
