@@ -59,7 +59,8 @@ def get_api_answer(timestamp: int):
         raise ConnectionError(f'Ошибка при подключении по API {error}')
     if homework_statuses.status_code != HTTPStatus.OK:
         raise HTTPError('Проблема с запросом, статус_код отличный от 200')
-    return homework_statuses.json()  # не могу понять, как обернуть ретёрн в try/except
+    return homework_statuses.json()
+    # не могу понять, как обернуть ретёрн в try/except
 
 
 def check_response(response: dict) -> list:
