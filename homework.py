@@ -3,12 +3,15 @@ import os
 import sys
 import time
 from http import HTTPStatus
+from urllib.error import HTTPError
 
 import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import KeysAreNotInResponse, NoToken
+from exceptions import EmptyList, KeysAreNotInResponse
+from settings import (ENDPOINT, HOMEWORK_VERDICTS, RETRY_PERIOD,
+                      SECONDS_IN_MONTH)
 
 load_dotenv()
 
@@ -16,15 +19,10 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
-HOMEWORK_VERDICTS = {
-    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
-    'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
-}
+# эту переменную не смогла вынести в отдельный файл, она зависит
+# от переменной TELEGRAM_TOKEN, кажется, это создает кольцевую зависимость
 
 logging.basicConfig(
     format='%(asctime)s, %(levelname)s, %(funcName)s, %(message)s, %(name)s',
@@ -34,23 +32,7 @@ logging.basicConfig(
 
 def check_tokens() -> bool:
     """Проверяет доступность переменных окружения."""
-    try:
-        if TELEGRAM_TOKEN:
-            return True
-    except NoToken:
-        print('No token')
-
-    try:
-        if PRACTICUM_TOKEN:
-            return True
-    except NoToken:
-        print('No token')
-
-    try:
-        if TELEGRAM_CHAT_ID:
-            return True
-    except NoToken:
-        print('No token')
+    return all((PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID))
 
 
 def send_message(bot, message):
@@ -73,13 +55,11 @@ def get_api_answer(timestamp: int):
             headers=HEADERS,
             params=payload
         )
-        if homework_statuses.status_code != HTTPStatus.OK:
-            raise KeyError('Проблема с запросом, статус_код отличный от 200')
-
     except Exception as error:
         raise ConnectionError(f'Ошибка при подключении по API {error}')
-
-    return homework_statuses.json()
+    if homework_statuses.status_code != HTTPStatus.OK:
+        raise HTTPError('Проблема с запросом, статус_код отличный от 200')
+    return homework_statuses.json()  # не могу понять, как обернуть ретёрн в try/except
 
 
 def check_response(response: dict) -> list:
@@ -91,6 +71,9 @@ def check_response(response: dict) -> list:
         raise KeysAreNotInResponse
     elif not isinstance(response.get('homeworks'), list):
         raise TypeError('Неверная структура данных, ожидается list')
+    elif len(response.get('homeworks')) == 0:
+        raise EmptyList
+
     return response.get('homeworks')
 
 
@@ -100,17 +83,21 @@ def parse_status(homework: dict) -> str:
     """
     if 'homework_name' in homework:
         homework_name = homework['homework_name']
-        status = homework['status']
-        if status in HOMEWORK_VERDICTS.keys():
-            verdict = HOMEWORK_VERDICTS[status]
-            return (f'Изменился статус проверки '
-                    f'работы "{homework_name}". {verdict}')
+        if 'status' in homework:
+            status = homework['status']
+            if status in HOMEWORK_VERDICTS.keys():
+                verdict = HOMEWORK_VERDICTS[status]
+                return (f'Изменился статус проверки '
+                        f'работы "{homework_name}". {verdict}')
+            else:
+                logging.error('Ошибка в статусе домашней работы')
+                raise KeyError('Ошибка в статусе домашней работы')
         else:
-            logging.error('В ответе API нет ключа homework_name')
-            raise KeyError('В ответе API нет ключа homework_name')
+            logging.error('В ответе API нет ключа status')
+            raise KeyError('В ответе API нет ключа status')
     else:
-        logging.error('Ошибка в статусе домашней работы')
-        raise KeyError('Ошибка в статусе домашней работы')
+        logging.error('В ответе API нет ключа homework_name')
+        raise KeyError('В ответе API нет ключа homework_name')
 
 
 def main():
@@ -120,7 +107,7 @@ def main():
         sys.exit(1)
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time()) - 30 * 24 * 60 * 60
+    timestamp = int(time.time()) - SECONDS_IN_MONTH
 
     prev_hw = None
     prev_message = None
