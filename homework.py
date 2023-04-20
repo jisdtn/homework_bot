@@ -9,7 +9,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import EmptyList, KeysAreNotInResponse
+from exceptions import EmptyList, JsonException, KeysAreNotInResponse
 from settings import (ENDPOINT, HOMEWORK_VERDICTS, RETRY_PERIOD,
                       SECONDS_IN_MONTH)
 
@@ -20,13 +20,14 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-
-# эту переменную не смогла вынести в отдельный файл, она зависит
-# от переменной TELEGRAM_TOKEN, кажется, это создает кольцевую зависимость
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 logging.basicConfig(
     format='%(asctime)s, %(levelname)s, %(funcName)s, %(message)s, %(name)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler(f'{BASE_DIR}/output.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 
 
@@ -57,10 +58,13 @@ def get_api_answer(timestamp: int):
         )
     except Exception as error:
         raise ConnectionError(f'Ошибка при подключении по API {error}')
+
     if homework_statuses.status_code != HTTPStatus.OK:
         raise HTTPError('Проблема с запросом, статус_код отличный от 200')
-    return homework_statuses.json()
-    # не могу понять, как обернуть ретёрн в try/except
+    try:
+        return homework_statuses.json()
+    except Exception as error:
+        raise JsonException(f'Ошибка декодирования {error}')
 
 
 def check_response(response: dict) -> list:
@@ -82,23 +86,21 @@ def parse_status(homework: dict) -> str:
     """Извлекает из информации о.
     конкретной домашней работе статус работы.
     """
-    if 'homework_name' in homework:
-        homework_name = homework['homework_name']
-        if 'status' in homework:
-            status = homework['status']
-            if status in HOMEWORK_VERDICTS.keys():
-                verdict = HOMEWORK_VERDICTS[status]
-                return (f'Изменился статус проверки '
-                        f'работы "{homework_name}". {verdict}')
-            else:
-                logging.error('Ошибка в статусе домашней работы')
-                raise KeyError('Ошибка в статусе домашней работы')
-        else:
-            logging.error('В ответе API нет ключа status')
-            raise KeyError('В ответе API нет ключа status')
-    else:
+    if 'homework_name' not in homework:
         logging.error('В ответе API нет ключа homework_name')
         raise KeyError('В ответе API нет ключа homework_name')
+    if 'status' not in homework:
+        logging.error('В ответе API нет ключа status')
+        raise KeyError('В ответе API нет ключа status')
+    status = homework['status']
+    if status not in HOMEWORK_VERDICTS.keys():
+        logging.error('Ошибка в статусе домашней работы')
+        raise KeyError('Ошибка в статусе домашней работы')
+
+    homework_name = homework['homework_name']
+    verdict = HOMEWORK_VERDICTS[status]
+    return (f'Изменился статус проверки '
+            f'работы "{homework_name}". {verdict}')
 
 
 def main():
