@@ -34,8 +34,8 @@ python3 -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-``` 
 - В корневой директории выполните команду:
+
 ```
 python3 homework.py
 ```
